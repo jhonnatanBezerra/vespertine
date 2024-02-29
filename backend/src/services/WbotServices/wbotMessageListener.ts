@@ -303,6 +303,25 @@ const msgLocation = (image, latitude, longitude) => {
   }
 };
 
+const extractArrayVcard = (msg: proto.IWebMessageInfo) => {
+
+  if (!msg?.message?.contactsArrayMessage) return null;
+
+  const { contacts } = msg.message.contactsArrayMessage;
+
+  const vCardArray = [];
+
+  contacts.forEach((contact: proto.Message.IContactMessage) => {
+
+    vCardArray.push(contact.vcard);
+
+
+  });
+
+  return JSON.stringify(vCardArray);
+
+};
+
 export const getBodyMessage = (msg: proto.IWebMessageInfo): string | null => {
 
   try {
@@ -320,7 +339,8 @@ export const getBodyMessage = (msg: proto.IWebMessageInfo): string | null => {
       viewOnceMessage: getBodyButton(msg) || msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId,
       stickerMessage: "sticker",
       contactMessage: msg.message?.contactMessage?.vcard,
-      contactsArrayMessage: "varios contatos",
+      // contactsArrayMessage: "varios contatos",
+      contactsArrayMessage: extractArrayVcard(msg),
       //locationMessage: `Latitude: ${msg.message.locationMessage?.degreesLatitude} - Longitude: ${msg.message.locationMessage?.degreesLongitude}`,
       locationMessage: msgLocation(
         msg.message?.locationMessage?.jpegThumbnail,
@@ -426,9 +446,9 @@ const downloadMedia = async (msg: proto.IWebMessageInfo) => {
     )
   } catch (err) {
 
-   
-      console.error('Erro ao baixar mídia:', err);
-   
+
+    console.error('Erro ao baixar mídia:', err);
+
     // Trate o erro de acordo com as suas necessidades
   }
 
@@ -911,57 +931,57 @@ export const handleRating = async (
   const io = getIO();
 
   const { complationMessage } = await ShowWhatsAppService(
-      ticket.whatsappId,
-      ticket.companyId
-    );
+    ticket.whatsappId,
+    ticket.companyId
+  );
 
-    let finalRate = rate;
+  let finalRate = rate;
 
-    if (rate < 1) {
-      finalRate = 1;
-    }
-    if (rate > 5) {
-      finalRate = 5;
-    }
+  if (rate < 1) {
+    finalRate = 1;
+  }
+  if (rate > 5) {
+    finalRate = 5;
+  }
 
-    await UserRating.create({
-      ticketId: ticketTraking.ticketId,
-      companyId: ticketTraking.companyId,
-      userId: ticketTraking.userId,
-      rate: finalRate,
-    });
+  await UserRating.create({
+    ticketId: ticketTraking.ticketId,
+    companyId: ticketTraking.companyId,
+    userId: ticketTraking.userId,
+    rate: finalRate,
+  });
 
-    if (complationMessage) {
-      const body = formatBody(`\u200e${complationMessage}`, ticket.contact);
-      await SendWhatsAppMessage({ body, ticket });
-    }
+  if (complationMessage) {
+    const body = formatBody(`\u200e${complationMessage}`, ticket.contact);
+    await SendWhatsAppMessage({ body, ticket });
+  }
 
-    await ticketTraking.update({
-      finishedAt: moment().toDate(),
-      rated: true,
-    });
+  await ticketTraking.update({
+    finishedAt: moment().toDate(),
+    rated: true,
+  });
 
-    await ticket.update({
-      queueId: null,
-      chatbot: null,
-      queueOptionId: null,
-      userId: null,
-      status: "closed",
-    });
+  await ticket.update({
+    queueId: null,
+    chatbot: null,
+    queueOptionId: null,
+    userId: null,
+    status: "closed",
+  });
 
-    io.to("open").emit(`company-${ticket.companyId}-ticket`, {
-      action: "delete",
+  io.to("open").emit(`company-${ticket.companyId}-ticket`, {
+    action: "delete",
+    ticket,
+    ticketId: ticket.id,
+  });
+
+  io.to(ticket.status)
+    .to(ticket.id.toString())
+    .emit(`company-${ticket.companyId}-ticket`, {
+      action: "update",
       ticket,
       ticketId: ticket.id,
     });
-
-    io.to(ticket.status)
-      .to(ticket.id.toString())
-      .emit(`company-${ticket.companyId}-ticket`, {
-        action: "update",
-        ticket,
-        ticketId: ticket.id,
-      });
 };
 
 const handleChartbot = async (ticket: Ticket, msg: WAMessage, wbot: Session, dontReadTheFirstQuestion: boolean = false) => {
@@ -1348,7 +1368,7 @@ const handleMessage = async (
     });
 
     if (unreadMessages === 0 && whatsapp.complationMessage && formatBody(whatsapp.complationMessage, contact).trim().toLowerCase() === lastMessage?.body.trim().toLowerCase()) {
-        return;
+      return;
     }
 
     const ticket = await FindOrCreateTicketService(contact, wbot.id!, unreadMessages, companyId, groupContact);
@@ -1382,7 +1402,7 @@ const handleMessage = async (
          * Tratamento para avaliação do atendente
          */
         console.log("passou aqui")
-        //  // dev Ricardo: insistir a responder avaliação 
+        //  // dev Ricardo: insistir a responder avaliação
         //  const rate_ = Number(bodyMessage);
 
         //  if ((ticket?.lastMessage.includes('_Insatisfeito_') || ticket?.lastMessage.includes('Por favor avalie nosso atendimento.')) &&  (!isFinite(rate_))) {
